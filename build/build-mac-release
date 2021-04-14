@@ -1,0 +1,50 @@
+#!/bin/bash
+
+BUILD_TARGET=""
+while getopts "t:" opt; do
+    case $opt in
+        t)
+            BUILD_TARGET=$OPTARG
+            ;;
+        ?)
+            echo "Usage: $(basename $0) [-t <target-triple>]"
+            ;;
+    esac
+done
+
+ROOT_DIR=$( cd $( dirname $0 ) && pwd )
+VERSION=$(grep -E '^version' "${ROOT_DIR}/../Cargo.toml" | awk '{print $3}' | sed 's/"//g')
+
+if [[ "${BUILD_TARGET}" != "" ]]; then
+    cargo build --release --target "${BUILD_TARGET}"
+else
+    cargo build --release
+fi
+
+if [[ "$?" != "0" ]]; then
+    exit $?;
+fi
+
+RELEASE_FOLDER="${ROOT_DIR}/release"
+
+mkdir -p "${RELEASE_FOLDER}"
+
+# Into release folder
+if [[ "${BUILD_TARGET}" != "" ]]; then
+    cd "${ROOT_DIR}/../target/${BUILD_TARGET}/release"
+else
+    cd "${ROOT_DIR}/../target/release"
+fi
+
+export COPYFILE_DISABLE=1
+
+RELEASE_PACKAGE_FILE_NAME="realm-v${VERSION}.${BUILD_TARGET}.tar.xz"
+RELEASE_PACKAGE_FILE_PATH="${RELEASE_FOLDER}/${RELEASE_PACKAGE_FILE_NAME}"
+tar -cJf "${RELEASE_PACKAGE_FILE_PATH}" "realm"
+
+# Checksum
+cd "${RELEASE_FOLDER}"
+shasum -a 256 "${RELEASE_PACKAGE_FILE_NAME}" > "${RELEASE_PACKAGE_FILE_NAME}.sha256"
+
+echo "Finished build release ${RELEASE_PACKAGE_FILE_PATH}"
+

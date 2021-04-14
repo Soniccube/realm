@@ -1,0 +1,101 @@
+#!/bin/bash
+
+CUR_DIR=$( cd $( dirname $0 ) && pwd )
+VERSION=$(grep -E '^version' ${CUR_DIR}/../Cargo.toml | awk '{print $3}' | sed 's/"//g')
+
+## Disable macos ACL file
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    export COPYFILE_DISABLE=1
+fi
+
+targets=()
+
+while getopts "t:" opt; do
+    case $opt in
+        t)
+            targets+=($OPTARG)
+            ;;
+        ?)
+            echo "Usage: $(basename $0) [-t <target-triple>]"
+            ;;
+    esac
+done
+
+if [[ "${#targets[@]}" == "0" ]]; then
+    targets=(
+        "x86_64-unknown-linux-musl"
+        "x86_64-unknown-linux-gnu"
+
+        "x86_64-pc-windows-gnu"
+
+        "arm-unknown-linux-gnueabihf" # armhf, hard
+        "arm-unknown-linux-musleabi"  # arm, soft
+        "aarch64-unknown-linux-gnu"
+
+        "mips-unknown-linux-musl"     # big endian
+        "mipsel-unknown-linux-musl"   # little endian
+    )
+fi
+
+[[ -z $upx ]] && upx="echo pending"
+if [[ $upx == "echo pending" ]] && hash upx 2>/dev/null; then
+	upx="upx -9"
+fi
+
+function build() {
+    cd "$CUR_DIR/.."
+
+    TARGET=$1
+    echo "* Building ${TARGET} package ${VERSION} ..."
+
+    RELEASE_DIR="target/${TARGET}/release"
+
+    cross build --target "${TARGET}" \
+                --release
+
+    if [[ $? != "0" ]]; then
+        exit $?
+    fi
+
+    PKG_DIR="${CUR_DIR}/release"
+    mkdir -p "${PKG_DIR}"
+
+    if [[ "$TARGET" == *"-linux-"* ]]; then
+        PKG_NAME="realm-v${VERSION}.${TARGET}.tar.xz"
+        PKG_PATH="${PKG_DIR}/${PKG_NAME}"
+
+        cd ${RELEASE_DIR}
+
+        echo "* Packaging XZ in ${PKG_PATH} ..."
+        tar -cJf ${PKG_PATH} \
+            "realm"
+
+        if [[ $? != "0" ]]; then
+            exit $?
+        fi
+
+        cd "${PKG_DIR}"
+        shasum -a 256 "${PKG_NAME}" > "${PKG_NAME}.sha256"
+    elif [[ "$TARGET" == *"-windows-"* ]]; then
+        PKG_NAME="realm-v${VERSION}.${TARGET}.zip"
+        PKG_PATH="${PKG_DIR}/${PKG_NAME}"
+
+        echo "* Packaging ZIP in ${PKG_PATH} ..."
+        cd ${RELEASE_DIR}
+        zip ${PKG_PATH} \
+            "realm.exe"
+
+        if [[ $? != "0" ]]; then
+            exit $?
+        fi
+
+        cd "${PKG_DIR}"
+        shasum -a 256 "${PKG_NAME}" > "${PKG_NAME}.sha256"
+    fi
+
+    echo "* Done build package ${PKG_NAME}"
+}
+
+for target in "${targets[@]}"; do
+    build "$target";
+done
