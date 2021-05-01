@@ -74,8 +74,8 @@ function build() {
             exit $?
         fi
 
-        cd "${PKG_DIR}"
-        shasum -a 256 "${PKG_NAME}" > "${PKG_NAME}.sha256"
+        # cd "${PKG_DIR}"
+        # shasum -a 256 "${PKG_NAME}" > "${PKG_NAME}.sha256"
     elif [[ "$TARGET" == *"-windows-"* ]]; then
         PKG_NAME="realm-v${VERSION}.${TARGET}.zip"
         PKG_PATH="${PKG_DIR}/${PKG_NAME}"
@@ -89,8 +89,8 @@ function build() {
             exit $?
         fi
 
-        cd "${PKG_DIR}"
-        shasum -a 256 "${PKG_NAME}" > "${PKG_NAME}.sha256"
+        # cd "${PKG_DIR}"
+        # shasum -a 256 "${PKG_NAME}" > "${PKG_NAME}.sha256"
     fi
 
     echo "* Done build package ${PKG_NAME}"
