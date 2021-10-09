@@ -50,7 +50,7 @@ jobs:
           prerelease: ${{ contains(github.ref, '-') }}
 
   build-mac:
-    runs-on: macos-latest
+    runs-on: macos-11
     env:
       RUST_BACKTRACE: full
     strategy:
